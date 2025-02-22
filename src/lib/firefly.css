@@ -1,0 +1,37 @@
+.firefly {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: rgba(255, 255, 255, 0.8); /* Light color for the firefly */
+    border-radius: 50%;
+    animation: fly 3s linear infinite, flash 1s ease-in-out infinite;
+}
+
+@keyframes fly {
+    0% {
+        bottom: 0;
+        left: calc(100% * random());
+    }
+    100% {
+        bottom: 100%;
+        left: calc(100% * random());
+    }
+}
+
+@keyframes flash {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+@keyframes random {
+    0% {
+        left: calc(100% * random());
+    }
+    100% {
+        left: calc(100% * random());
+    }
+}
