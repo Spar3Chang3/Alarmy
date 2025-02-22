@@ -1,5 +1,5 @@
 <script lang="js">
-    //TODO: change lower text to use 12h, possibly implement timer.
+    //TODO: change lower text to use 12h, possibly implement timer, implement unobtrusive forced user interaction for sound
 
     import { onMount } from 'svelte';
 
@@ -7,7 +7,7 @@
     const fireflyNum = makeArray(25);
     const cookieName = "AlarmTimes";
 
-    let showCookiePrompt = $state(true);
+    let showCookiePrompt = $state(false);
     let allowCookies = $state(false);
 
     let currentTime = $state('');
@@ -20,6 +20,7 @@
 
     let alarmTimes = $state([]);
     let alarmTime = $state('');
+
     let currentUserAlarmChoice = $state('');
     let alarmPlayed = $state(false);
     let alarmSet = $state(false);
@@ -54,7 +55,6 @@
         showCookiePrompt = false;
         allowCookies = false;
 
-        console.log(allowCookies);
     }
 
     function yesCookies(e) {
@@ -63,7 +63,6 @@
         showCookiePrompt = false;
         allowCookies = true;
 
-        console.log(allowCookies);
     }
 
     function getCurrentDay() {
@@ -219,11 +218,14 @@
 
     function deleteAlarm(alarm) {
         alarmTimes = alarmTimes.filter(time => time !== alarm);
+        if (alarmTimes.length === 0) {
+            alarmSet = false;
+        }
     }
 
     onMount(() => {
         alarmAudio = new Audio(alarmSound);
-        alarmAudio.volume = 0.75;
+        alarmAudio.volume = 1.0;
         alarmAudio.loop = true;
 
         getCookie().then(() => {
@@ -233,6 +235,9 @@
             } else {
                 showCookiePrompt = false;
                 allowCookies = true;
+                alarmSet = true;
+                getNextNearestTime();
+                calculateNextRings();
             }
         });
 
@@ -288,8 +293,8 @@
         display: flex;
         flex-direction: column;
 
-        height: 50%;
-        width: 50%;
+        height: 75%;
+        width: 75%;
 
         justify-content: center;
         align-items: center;
@@ -301,6 +306,7 @@
     .cookie-consent h2 {
         font-size: 2rem;
         color: whitesmoke;
+        text-align: center;
     }
 
     .btn-group {
