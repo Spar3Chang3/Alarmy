@@ -19,6 +19,7 @@
         --color-background: #1a1a1a;
         --color-foreground: #2a2a2a;
         --color-accent: #ffba4d;
+        --color-tertiary: #1f1f1f;
     }
 
     main {

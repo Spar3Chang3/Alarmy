@@ -6,6 +6,7 @@
     import Fireflies from '$lib/Fireflies.svelte';
     import CookiePrompt from '$lib/CookiePrompt.svelte';
     import Alert from '$lib/Alert.svelte';
+    import '$lib/common.css';
 
     const alarmSound = "/default/YOU-WOULD-NOT-BELIEVE-YOUR-EYES.mp3";
     const fireflyNum = MakeNumberArray(0, 50);
@@ -210,22 +211,6 @@
         align-items: center;
     }
 
-    .shelf {
-        position: absolute;
-
-        height: 100dvh;
-        width: 100dvw;
-
-        z-index: 2;
-
-        filter: blur(2px);
-
-        background:
-                linear-gradient(90deg, var(--dot-bg) calc(var(--dot-space) - var(--dot-size)), transparent 1%) center / var(--dot-space) var(--dot-space),
-                linear-gradient(var(--dot-bg) calc(var(--dot-space) - var(--dot-size)), transparent 1%) center / var(--dot-space) var(--dot-space),
-                var(--dot-color);
-    }
-
     .alarm {
         position: relative;
         display: grid;
@@ -292,24 +277,6 @@
         margin-top: 10px;
     }
 
-    button {
-
-        width: 12rem;
-
-        padding: 10px 20px;
-        font-size: 1rem;
-        cursor: pointer;
-        border: none;
-        border-radius: 12px;
-
-        background-color: var(--color-accent);
-        transition: 0.3s ease;
-    }
-
-    button:active {
-        transform: scale(0.95);
-    }
-
     .alarm-set-btn {
         margin-top: 10px;
     }
@@ -342,20 +309,6 @@
         background-color: var(--color-background);
         margin-top: 2rem;
         border-radius: 12px;
-    }
-
-    span {
-        display: block;
-        margin-top: 10px;
-        font-size: 1.4rem;
-        transition: 0.3s ease;
-    }
-
-    p {
-        display: block;
-        margin-top: 10px;
-        font-size: 1rem;
-        transition: 0.3s ease;
     }
 
     .delete {
