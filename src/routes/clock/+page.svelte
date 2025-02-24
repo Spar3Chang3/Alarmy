@@ -11,24 +11,102 @@
     const alarmSound = "/default/YOU-WOULD-NOT-BELIEVE-YOUR-EYES.mp3";
     const fireflyNum = MakeNumberArray(0, 50);
     const cookieName = "AlarmTimes";
+    const apiUrl = 'http://worldtimeapi.org/api/ip';
 
     let allowCookies = $state(false);
     let showCookiePrompt = $state(false);
 
+    let useApi = $state(true);
+
     let currentTime = $state('');
-    let alarmAudio = $state(null)
+    let alarmAudio = $state(null);
+    let animationFrame = $state(null);
+
+    let elapsedTime = $state(0);
+    let startTime = $state(0);
+    let apiTime = $state({});
+
+    let hours = $state(0);
+    let minutes = $state(0);
+    let seconds = $state(0);
+
+    let amPm = $state('');
+    let displayHours = $derived(get12Hr(hours));
+    let displayMinutes = $derived(FormatNumberString(minutes));
+    let displaySeconds = $state(FormatNumberString(seconds));
 
     let currentHours = $state('');
     let currentMinutes = $state('');
     let currentSeconds = $state(0);
-    let amPm = $state('');
 
     let alarmTimes = $state([]);
     let nextAlarm = $state('');
+    let userAlarmChoice = $state('');
+
     let currentUserAlarmChoice = $state('');
 
     let alarmPlaying = $state(false);
     let alarmSet = $state(false);
+
+    async function syncTime() {
+
+        await fetch(apiUrl).then((res) => {
+            return res.json();
+        }).then((value) => {
+            apiTime = new Date(value.datetime);
+        }).then(() => {
+            startTime = performance.now();
+
+            hours = apiTime.getHours();
+            minutes = apiTime.getMinutes();
+            seconds = apiTime.getSeconds();
+
+        });
+    }
+
+    function updateTimeFrame() {
+        elapsedTime = (performance.now() - startTime) + apiTime.getMilliseconds();
+
+        seconds = (apiTime.getSeconds() + Math.floor((elapsedTime % 60000) / 1000)) % 60;
+        minutes = (Math.floor((elapsedTime % 3600000) / 60000));
+        hours = apiTime.getHours() + Math.floor(elapsedTime / 3600000);
+
+        console.log(`${hours}:${minutes}:${seconds}`);
+
+        if (hours >= 24) {
+            syncTime();
+        }
+
+        if (hours === 0) {
+            amPm = 'AM';
+        } else if (hours > 12) {
+            amPm = 'PM';
+        } else {
+            amPm = 'AM';
+        }
+
+        if (alarmSet) {
+            if (currentTime === nextAlarm && !alarmPlaying) {
+                playAlarm();
+                alarmPlaying = true;
+
+                calculateNextRings();
+                getNextNearestTime();
+            }
+        }
+
+        animationFrame = requestAnimationFrame(updateTimeFrame);
+    }
+
+    function get12Hr(hours) {
+        if (hours === 0) {
+            return '12';
+        } else if (hours > 12) {
+            return FormatNumberString(hours % 12);
+        } else {
+            return FormatNumberString(hours);
+        }
+    }
 
     function calculateNextRings() {
         const currentFullMinutes = (Number(currentHours) * 60) + Number(currentMinutes);
@@ -177,8 +255,8 @@
             }
         });
 
-        getCurrentTime().then(() => {
-            setInterval(count, 1000);
+        syncTime().then(() => {
+            animationFrame = requestAnimationFrame(updateTimeFrame);
         });
 
         document.getElementById("time-input").addEventListener("keydown", (e) => {
@@ -354,7 +432,7 @@
     </div>
     <div class="alarm">
         <div class="time">
-            <h1>{currentHours}:{currentMinutes}:{FormatNumberString(currentSeconds)} {amPm}</h1>
+            <h1>{displayHours}:{displayMinutes}:{displaySeconds} {amPm}</h1>
             <h4>{currentTime} &#183; {alarmSet ? `Next alarm set for ${nextAlarm}` : `No alarms set`}</h4>
         </div>
 
