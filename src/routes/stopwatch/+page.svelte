@@ -1,8 +1,15 @@
 <script lang="js">
     //I think this is much better than my alarm clock, I will likely update it with this type of logic in the coming commits
 
+    import { onMount } from 'svelte';
     import { FormatNumberString, GetCookie, SetCookie } from '$lib/index.js';
     import '$lib/common.css'
+    import CookiePrompt from "$lib/CookiePrompt.svelte";
+
+    const cookieName = 'StopwatchTimes';
+
+    let allowCookies = $state(false);
+    let showCookiePrompt = $state(false);
 
     let seconds = $state(0);
     let minutes = $state(0);
@@ -74,6 +81,10 @@
         });
 
         clearStopwatch();
+
+        if (allowCookies) {
+            SetCookie(cookieName, savedTimes, 30);
+        }
     }
 
     function countStopwatch() {
@@ -91,7 +102,26 @@
 
     function deleteTime(time) {
         savedTimes = savedTimes.filter(findTime => findTime !== time);
+
+        if (allowCookies) {
+            SetCookie(cookieName, savedTimes, 30);
+        }
     }
+
+    onMount(() => {
+
+        GetCookie(cookieName).then((value) => {
+            if (value.length === 0) {
+                showCookiePrompt = true;
+                allowCookies = false;
+            } else {
+                savedTimes = value;
+                showCookiePrompt = false;
+                allowCookies = true;
+            }
+        })
+
+    });
 
 </script>
 <style lang="css">
@@ -222,6 +252,9 @@
 
 </style>
 <section class="stopwatch">
+
+    <CookiePrompt message="Would you like to enable cookies for saving stopwatch times?" bind:allowCookies={allowCookies} bind:showPrompt={showCookiePrompt} />
+
     <div class="shelf"></div>
     <div class="time">
         <h1>{displayHours}:{displayMinutes}:{displaySeconds}:{displayMilliseconds}</h1>

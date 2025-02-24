@@ -13,7 +13,7 @@
     const cookieName = "AlarmTimes";
 
     let allowCookies = $state(false);
-    let showCookiePrompt = $state(true);
+    let showCookiePrompt = $state(false);
 
     let currentTime = $state('');
     let alarmAudio = $state(null)
