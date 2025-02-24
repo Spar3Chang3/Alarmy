@@ -18,11 +18,9 @@
 
     let useApi = $state(true);
 
-    let currentTime = $state('');
     let alarmAudio = $state(null);
     let animationFrame = $state(null);
 
-    let elapsedTime = $state(0);
     let startTime = $state(0);
     let apiTime = $state({});
 
@@ -33,14 +31,12 @@
     let amPm = $state('');
     let displayHours = $derived(get12Hr(hours));
     let displayMinutes = $derived(FormatNumberString(minutes));
-    let displaySeconds = $state(FormatNumberString(seconds));
+    let displaySeconds = $derived(FormatNumberString(seconds));
 
-    let currentHours = $state('');
-    let currentMinutes = $state('');
-    let currentSeconds = $state(0);
+    let currentMinuteTime = $derived(`${hours}:${minutes}`);
 
     let alarmTimes = $state([]);
-    let nextAlarm = $state('');
+    let nextAlarm = $state({});
     let userAlarmChoice = $state('');
 
     let currentUserAlarmChoice = $state('');
@@ -55,38 +51,39 @@
         }).then((value) => {
             apiTime = new Date(value.datetime);
         }).then(() => {
-            startTime = performance.now();
+            startTime = performance.now() + apiTime.getMilliseconds();
 
             hours = apiTime.getHours();
             minutes = apiTime.getMinutes();
             seconds = apiTime.getSeconds();
-
+            setAmPm();
         });
     }
 
     function updateTimeFrame() {
-        elapsedTime = (performance.now() - startTime) + apiTime.getMilliseconds();
+        if (performance.now() - startTime >= 1000) {
+            seconds++;
+            startTime = performance.now();
+        }
 
-        seconds = (apiTime.getSeconds() + Math.floor((elapsedTime % 60000) / 1000)) % 60;
-        minutes = (Math.floor((elapsedTime % 3600000) / 60000));
-        hours = apiTime.getHours() + Math.floor(elapsedTime / 3600000);
+        if (seconds === 60) {
+            seconds = 0;
+            minutes++;
+        }
 
-        console.log(`${hours}:${minutes}:${seconds}`);
+        if (minutes === 60) {
+            minutes = 0;
+            hours++;
+        }
 
-        if (hours >= 24) {
+        if (hours === 24) {
             syncTime();
         }
 
-        if (hours === 0) {
-            amPm = 'AM';
-        } else if (hours > 12) {
-            amPm = 'PM';
-        } else {
-            amPm = 'AM';
-        }
+        setAmPm();
 
         if (alarmSet) {
-            if (currentTime === nextAlarm && !alarmPlaying) {
+            if (currentMinuteTime === nextAlarm.full && !alarmPlaying) {
                 playAlarm();
                 alarmPlaying = true;
 
@@ -96,6 +93,26 @@
         }
 
         animationFrame = requestAnimationFrame(updateTimeFrame);
+    }
+
+    function setAmPm() {
+        if (hours === 0) {
+            amPm = 'AM';
+        } else if (hours > 12) {
+            amPm = 'PM';
+        } else {
+            amPm = 'AM';
+        }
+    }
+
+    function getAmPm(hours) {
+        if (hours === 0) {
+            return 'AM';
+        } else if (hours >= 12) {
+            return 'PM';
+        } else {
+            return 'AM';
+        }
     }
 
     function get12Hr(hours) {
@@ -109,96 +126,43 @@
     }
 
     function calculateNextRings() {
-        const currentFullMinutes = (Number(currentHours) * 60) + Number(currentMinutes);
+        const currentFullMinutes = (hours * 60) + minutes;
 
         for (let alarm of alarmTimes) {
-            const [hour, minute] = alarm.alarm.split(':').map(Number);
-            const fullAlarmMinutes = hour * 60 + minute;
+            const fullAlarmMinutes = (alarm.hours * 60) + alarm.minutes;
 
             if (fullAlarmMinutes <= currentFullMinutes) {
                 deleteAlarm(alarm);
                 alarmTimes.push({
-                    alarm: alarm.alarm,
+                    full: alarm.full,
+                    hours: alarm.hours,
+                    minutes: alarm.minutes,
                     timestamp: GetNextDay()
                 });
             }
         }
     }
 
-    function calculateNextRing(alarmTime) {
-        const currentFullMinutes = (Number(currentHours) * 60) + Number(currentMinutes);
+    function calculateNextRing(alarm) {
+        const currentFullMinutes = (hours * 60) + minutes;
 
-        const [hour, minute] = alarmTime.split(':').map(Number);
-        const fullAlarmMinutes =  hour * 60 + minute;
+        const fullAlarmMinutes = (alarm.hours * 60) + alarm.minutes;
 
         if (fullAlarmMinutes <= currentFullMinutes) {
-            return GetNextDay()
+            return GetNextDay();
         } else {
-            return GetCurrentDay()
+            return GetCurrentDay();
         }
     }
 
     function getNextNearestTime() {
-        const currentFullMinutes = (Number(currentHours) * 60) + Number(currentMinutes);
+        const currentFullMinutes = (hours * 60) + minutes;
 
-        //Convert each time string "HH:mm" into minutes since midnight.
-        const timesInMinutes = alarmTimes.map(time => {
-            const [hour, minute] = time.alarm.split(':').map(Number);
-            return hour * 60 + minute;
-        });
+        const futureTimes = alarmTimes.filter(alarm => ((alarm.hours * 60) + alarm.minutes) > currentFullMinutes);
 
-        const futureTimes = timesInMinutes.filter(timeMinutes => timeMinutes > currentFullMinutes);
-
-        //Determine the next time. If no times are in the future, return the earliest time the next day.
-        let nextTimeMinutes = futureTimes.length > 0
+        nextAlarm = futureTimes.length > 0
             ? Math.min(...futureTimes)
-            : Math.min(...timesInMinutes);
-
-
-
-        //Convert minutes back to HH:mm format.
-        const nextHour = Math.floor(nextTimeMinutes / 60);
-        const nextMinute = nextTimeMinutes % 60;
-        nextAlarm = `${FormatNumberString(nextHour)}:${FormatNumberString(nextMinute)}`;
-    }
-
-
-    async function getCurrentTime() {
-        const now = new Date();
-        currentTime = now.toLocaleTimeString([], { hourCycle: "h23", hour: '2-digit', minute: '2-digit'});
-        const hours = now.getHours();
-
-        if (hours === 0) {
-            amPm = 'AM';
-            currentHours = '12';
-        } else if (hours > 12) {
-            amPm = 'PM';
-            currentHours = FormatNumberString(hours % 12);
-        } else {
-            amPm = 'AM';
-            currentHours = FormatNumberString(hours);
-        }
-
-        currentMinutes = FormatNumberString(now.getMinutes());
-        currentSeconds = now.getSeconds();
-
-        if (alarmSet) {
-            if (currentTime === nextAlarm && !alarmPlaying) {
-                playAlarm();
-                alarmPlaying = true;
-
-                calculateNextRings();
-                getNextNearestTime();
-            }
-        }
-    }
-
-    async function count() {
-        currentSeconds++;
-
-        if (currentSeconds === 60) {
-            await getCurrentTime();
-        }
+            : Math.min(...alarmTimes);
     }
 
     function playAlarm() {
@@ -209,16 +173,19 @@
     }
 
     function setAlarm() {
-        if (currentUserAlarmChoice) {
-            console.log(`Alarm set for: ${currentUserAlarmChoice}`);
+        if (userAlarmChoice) {
+            const newAlarm = userAlarmChoice.split(":");
             alarmTimes.push({
-                alarm: currentUserAlarmChoice,
+                full: userAlarmChoice,
+                hours: Number(newAlarm[0]),
+                minutes: Number(newAlarm[1]),
                 timestamp: calculateNextRing(currentUserAlarmChoice)
             });
+            console.log(alarmTimes);
             alarmSet = true;
             const input = document.getElementById('time-input');
             input.value = '';
-            currentUserAlarmChoice = '';
+            userAlarmChoice = '';
             getNextNearestTime();
             if (allowCookies) {
                 SetCookie(cookieName, alarmTimes, 30);
@@ -264,6 +231,10 @@
                 setAlarm();
             }
         });
+
+        return () => {
+            cancelAnimationFrame(animationFrame);
+        }
     });
 
     $effect(() => {
@@ -433,19 +404,19 @@
     <div class="alarm">
         <div class="time">
             <h1>{displayHours}:{displayMinutes}:{displaySeconds} {amPm}</h1>
-            <h4>{currentTime} &#183; {alarmSet ? `Next alarm set for ${nextAlarm}` : `No alarms set`}</h4>
+            <h4>{currentMinuteTime} &#183; {alarmSet ? `Next alarm set for ${nextAlarm.full}` : `No alarms set`}</h4>
         </div>
 
         <div class="alarm-set">
             <label for="time-input">Set Alarm</label>
             <div class="set-controls">
-                <input id="time-input" type="time" bind:value={currentUserAlarmChoice}>
+                <input id="time-input" type="time" bind:value={userAlarmChoice}>
                 <button class="alarm-set-btn" onclick={setAlarm}>Set Alarm</button>
             </div>
             <div class="alarm-comp-container">
                 {#each alarmTimes as alarm}
                     <div class="alarm-comp">
-                        <span>{alarm.alarm}</span>
+                        <span>{get12Hr(alarm.hours)}:{alarm.minutes} {getAmPm(alarm.hours)}</span>
                         <p>Next alarm ring: {alarm.timestamp}</p>
                         <button class="delete" onclick={() => deleteAlarm(alarm)}>&#10005;</button>
                     </div>
