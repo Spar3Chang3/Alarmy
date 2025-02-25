@@ -22,7 +22,7 @@
     let animationFrame = $state(null);
 
     let startTime = $state(0);
-    let apiTime = $state({});
+    let apiTime = $state();
 
     let hours = $state(0);
     let minutes = $state(0);
@@ -34,12 +34,10 @@
     let displaySeconds = $derived(FormatNumberString(seconds));
 
     let currentMinuteTime = $derived(`${hours}:${minutes}`);
-
-    let alarmTimes = $state([]);
+    let savedAlarms = $state(new Map());
+    let displaySavedAlarms = $state({});
     let nextAlarm = $state({});
-    let userAlarmChoice = $state('');
-
-    let currentUserAlarmChoice = $state('');
+    let userAlarmChoice = $state();
 
     let alarmPlaying = $state(false);
     let alarmSet = $state(false);
@@ -72,11 +70,6 @@
         }
 
         if (minutes === 60) {
-            minutes = 0;
-            hours++;
-        }
-
-        if (hours === 24) {
             syncTime();
         }
 
@@ -128,25 +121,19 @@
     function calculateNextRings() {
         const currentFullMinutes = (hours * 60) + minutes;
 
-        for (let alarm of alarmTimes) {
-            const fullAlarmMinutes = (alarm.hours * 60) + alarm.minutes;
-
-            if (fullAlarmMinutes <= currentFullMinutes) {
-                deleteAlarm(alarm);
-                alarmTimes.push({
-                    full: alarm.full,
-                    hours: alarm.hours,
-                    minutes: alarm.minutes,
-                    timestamp: GetNextDay()
-                });
+        for (let key of [...savedAlarms.keys()]) {
+            if (key <= currentFullMinutes) {
+                savedAlarms.get(key).timestamp = GetNextDay();
             }
         }
+
+        displaySavedAlarms = [...savedAlarms.values()];
     }
 
-    function calculateNextRing(alarm) {
+    function calculateNextRing(alarmHours, alarmMinutes) {
         const currentFullMinutes = (hours * 60) + minutes;
 
-        const fullAlarmMinutes = (alarm.hours * 60) + alarm.minutes;
+        const fullAlarmMinutes = (alarmHours * 60) + alarmMinutes;
 
         if (fullAlarmMinutes <= currentFullMinutes) {
             return GetNextDay();
@@ -157,12 +144,21 @@
 
     function getNextNearestTime() {
         const currentFullMinutes = (hours * 60) + minutes;
+        let min = 24 * 60; //max value of total hours to start
 
-        const futureTimes = alarmTimes.filter(alarm => ((alarm.hours * 60) + alarm.minutes) > currentFullMinutes);
+        for (let key of [...savedAlarms.keys()]) {
+            if (key > currentFullMinutes) {
+                if (key < min) {
+                    min = key;
+                }
+            }
+        }
 
-        nextAlarm = futureTimes.length > 0
-            ? Math.min(...futureTimes)
-            : Math.min(...alarmTimes);
+        if (min === (24 * 60)) { //if it's still the same, just get the earliest alarm because all others have already been passed up for the day
+            nextAlarm = savedAlarms.get(Math.min([...savedAlarms.keys()]));
+        } else {
+            nextAlarm = savedAlarms.get(min);
+        }
     }
 
     function playAlarm() {
@@ -174,52 +170,67 @@
 
     function setAlarm() {
         if (userAlarmChoice) {
-            const newAlarm = userAlarmChoice.split(":");
-            alarmTimes.push({
+            const [alarmHours, alarmMinutes] = userAlarmChoice.split(":");
+            console.log(`${alarmHours}, ${alarmMinutes}`);
+            savedAlarms.set((alarmHours * 60 + alarmMinutes), {
                 full: userAlarmChoice,
-                hours: Number(newAlarm[0]),
-                minutes: Number(newAlarm[1]),
-                timestamp: calculateNextRing(currentUserAlarmChoice)
+                hours: alarmHours,
+                minutes: alarmMinutes,
+                timestamp: calculateNextRing(alarmHours, alarmMinutes)
             });
-            console.log(alarmTimes);
-            alarmSet = true;
-            const input = document.getElementById('time-input');
-            input.value = '';
-            userAlarmChoice = '';
             getNextNearestTime();
-            if (allowCookies) {
-                SetCookie(cookieName, alarmTimes, 30);
-            }
+            setAlarmBool(true).then(() => {
+                const input = document.getElementById('time-input');
+                input.value = '';
+                userAlarmChoice = '';
+                displaySavedAlarms = [...savedAlarms.values()];
+                if (allowCookies) {
+                    SetCookie(cookieName, [...savedAlarms.values()], 30);
+                }
+            });
         }
     }
 
     function deleteAlarm(alarm) {
-        alarmTimes = alarmTimes.filter(time => time !== alarm);
-        if (alarmTimes.length === 0) {
+        savedAlarms.delete((alarm.hours * 60 + alarm.minutes));
+
+        if (savedAlarms.size === 0) {
             alarmSet = false;
         }
+        displaySavedAlarms = [...savedAlarms.values()];
         if (allowCookies) {
-            SetCookie(cookieName, alarmTimes, 30);
+            SetCookie(cookieName, [...savedAlarms.values()], 30);
         }
+    }
+
+    async function setAlarmBool(trueFalse) {
+        alarmSet = trueFalse;
     }
 
     onMount(() => {
         alarmAudio = new Audio(alarmSound);
         alarmAudio.volume = 1.0;
         alarmAudio.loop = true;
+        savedAlarms = new Map();
+        //map is total alarm minutes - alarm object
 
         GetCookie(cookieName).then((value) => {
             if (value.length === 0) {
                 showCookiePrompt = true;
                 allowCookies = false;
             } else {
-                alarmTimes = value;
+                for (let alarm of value) {
+                    savedAlarms.set((alarm.hours * 60 + alarm.minutes), alarm);
+                }
+                displaySavedAlarms = [...savedAlarms.values()];
                 showCookiePrompt = false;
                 allowCookies = true;
-                alarmSet = true;
-                getNextNearestTime();
-                calculateNextRings();
             }
+        }).then(() => {
+            getNextNearestTime();
+            calculateNextRings();
+        }).then(() => {
+            setAlarmBool(!displaySavedAlarms.length === 0);
         });
 
         syncTime().then(() => {
@@ -414,7 +425,7 @@
                 <button class="alarm-set-btn" onclick={setAlarm}>Set Alarm</button>
             </div>
             <div class="alarm-comp-container">
-                {#each alarmTimes as alarm}
+                {#each displaySavedAlarms as alarm}
                     <div class="alarm-comp">
                         <span>{get12Hr(alarm.hours)}:{alarm.minutes} {getAmPm(alarm.hours)}</span>
                         <p>Next alarm ring: {alarm.timestamp}</p>
