@@ -22,7 +22,7 @@
     let animationFrame = $state(null);
 
     let startTime = $state(0);
-    let apiTime = $state();
+    let apiTime = $state(new Date());
 
     let hours = $state(0);
     let minutes = $state(0);
@@ -33,7 +33,7 @@
     let displayMinutes = $derived(FormatNumberString(minutes));
     let displaySeconds = $derived(FormatNumberString(seconds));
 
-    let currentMinuteTime = $derived(`${hours}:${minutes}`);
+    let currentMinuteTime = $derived(`${FormatNumberString(hours)}:${FormatNumberString(minutes)}`);
     let savedAlarms = $state(new Map());
     let displaySavedAlarms = $state({});
     let nextAlarm = $state({});
@@ -44,18 +44,20 @@
 
     async function syncTime() {
 
-        await fetch(apiUrl).then((res) => {
-            return res.json();
-        }).then((value) => {
+        try {
+            let res = await fetch(apiUrl);
+            let value = await res.json();
             apiTime = new Date(value.datetime);
-        }).then(() => {
+
             startTime = performance.now() + apiTime.getMilliseconds();
 
             hours = apiTime.getHours();
             minutes = apiTime.getMinutes();
             seconds = apiTime.getSeconds();
             setAmPm();
-        });
+        } catch (error) {
+            console.error("Failed to sync time remotely: " + error);
+        }
     }
 
     function updateTimeFrame() {
@@ -75,7 +77,7 @@
 
         setAmPm();
 
-        if (alarmSet) {
+        if (alarmSet && nextAlarm) {
             if (currentMinuteTime === nextAlarm.full && !alarmPlaying) {
                 playAlarm();
                 alarmPlaying = true;
@@ -91,7 +93,7 @@
     function setAmPm() {
         if (hours === 0) {
             amPm = 'AM';
-        } else if (hours > 12) {
+        } else if (hours >= 12) {
             amPm = 'PM';
         } else {
             amPm = 'AM';
@@ -143,6 +145,12 @@
     }
 
     function getNextNearestTime() {
+        if (savedAlarms.size === 0) {
+            alarmSet = false;
+            nextAlarm = {};
+            return;
+        }
+
         const currentFullMinutes = (hours * 60) + minutes;
         let min = 24 * 60; //max value of total hours to start
 
@@ -159,6 +167,7 @@
         } else {
             nextAlarm = savedAlarms.get(min);
         }
+        alarmSet = true;
     }
 
     function playAlarm() {
@@ -170,24 +179,22 @@
 
     function setAlarm() {
         if (userAlarmChoice) {
+            alarmSet = false;
             const [alarmHours, alarmMinutes] = userAlarmChoice.split(":");
-            console.log(`${alarmHours}, ${alarmMinutes}`);
-            savedAlarms.set((alarmHours * 60 + alarmMinutes), {
+            savedAlarms.set((Number(alarmHours) * 60 + Number(alarmMinutes)), {
                 full: userAlarmChoice,
-                hours: alarmHours,
-                minutes: alarmMinutes,
+                hours: Number(alarmHours),
+                minutes: Number(alarmMinutes),
                 timestamp: calculateNextRing(alarmHours, alarmMinutes)
             });
             getNextNearestTime();
-            setAlarmBool(true).then(() => {
-                const input = document.getElementById('time-input');
-                input.value = '';
-                userAlarmChoice = '';
-                displaySavedAlarms = [...savedAlarms.values()];
-                if (allowCookies) {
-                    SetCookie(cookieName, [...savedAlarms.values()], 30);
-                }
-            });
+            const input = document.getElementById('time-input');
+            input.value = '';
+            userAlarmChoice = '';
+            displaySavedAlarms = [...savedAlarms.values()];
+            if (allowCookies) {
+                SetCookie(cookieName, [...savedAlarms.values()], 30);
+            }
         }
     }
 
@@ -198,13 +205,10 @@
             alarmSet = false;
         }
         displaySavedAlarms = [...savedAlarms.values()];
+        getNextNearestTime();
         if (allowCookies) {
             SetCookie(cookieName, [...savedAlarms.values()], 30);
         }
-    }
-
-    async function setAlarmBool(trueFalse) {
-        alarmSet = trueFalse;
     }
 
     onMount(() => {
@@ -220,17 +224,14 @@
                 allowCookies = false;
             } else {
                 for (let alarm of value) {
-                    savedAlarms.set((alarm.hours * 60 + alarm.minutes), alarm);
+                    savedAlarms.set((Number(alarm.hours) * 60 + Number(alarm.minutes)), alarm);
                 }
                 displaySavedAlarms = [...savedAlarms.values()];
                 showCookiePrompt = false;
                 allowCookies = true;
+                calculateNextRings();
+                getNextNearestTime();
             }
-        }).then(() => {
-            getNextNearestTime();
-            calculateNextRings();
-        }).then(() => {
-            setAlarmBool(!displaySavedAlarms.length === 0);
         });
 
         syncTime().then(() => {
@@ -407,7 +408,7 @@
 <section id="alarm-clock" class="clock">
 
     <CookiePrompt message="Would you like to enable cookies for saving alarms?" bind:allowCookies={allowCookies} bind:showPrompt={showCookiePrompt} />
-    <Alert message="Alarm for {nextAlarm} is ringing!" iconLink={IconLinks.alertClock} bind:showAlert={alarmPlaying} />
+    <Alert message="Alarm for {currentMinuteTime} is ringing!" iconLink={IconLinks.alertClock} bind:showAlert={alarmPlaying} />
 
     <div class="shelf">
         <Fireflies fireflyNum={fireflyNum} bind:showFireflies={alarmPlaying} />
@@ -415,7 +416,7 @@
     <div class="alarm">
         <div class="time">
             <h1>{displayHours}:{displayMinutes}:{displaySeconds} {amPm}</h1>
-            <h4>{currentMinuteTime} &#183; {alarmSet ? `Next alarm set for ${nextAlarm.full}` : `No alarms set`}</h4>
+            <h4>{currentMinuteTime} &#183; {nextAlarm !== undefined ? `Next alarm set for ${nextAlarm.full}` : 'No alarms set'}</h4>
         </div>
 
         <div class="alarm-set">
