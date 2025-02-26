@@ -6,6 +6,7 @@
     import Fireflies from '$lib/Fireflies.svelte';
     import CookiePrompt from '$lib/CookiePrompt.svelte';
     import Alert from '$lib/Alert.svelte';
+    import ToggleSlider from '$lib/ToggleSlider.svelte';
     import '$lib/common.css';
 
     const alarmSound = "/default/YOU-WOULD-NOT-BELIEVE-YOUR-EYES.mp3";
@@ -17,6 +18,7 @@
     let showCookiePrompt = $state(false);
 
     let useApi = $state(true);
+    let usePrecisionMode = $state(false);
 
     let alarmAudio = $state(null);
     let animationFrame = $state(null);
@@ -284,8 +286,13 @@
     }
 
     .time {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+
+        align-items: center;
+
         color: whitesmoke;
-        text-align: center;
     }
 
     .time h1 {
@@ -295,8 +302,36 @@
     }
 
     .time h4 {
-        font-size: 1rem;
+        font-size: 1.25rem;
         color: var(--color-accent);
+    }
+
+    .options-panel {
+        display: grid;
+        grid-template-columns: 75% 25%;
+
+        height: fit-content;
+        width: 100%;
+
+        align-items: center;
+        justify-items: center;
+
+        color: var(--color-accent);
+        border: 0.1rem var(--color-foreground) dashed;
+        border-radius: 12px;
+
+        margin-bottom: 0.5rem;
+    }
+
+    .options-panel h5 {
+        width: 90%;
+        padding-left: 10%;
+
+        text-align: left;
+    }
+
+    .options-panel b {
+        color: whitesmoke;
     }
 
     .alarm-set {
@@ -417,6 +452,14 @@
         <div class="time">
             <h1>{displayHours}:{displayMinutes}:{displaySeconds} {amPm}</h1>
             <h4>{currentMinuteTime} &#183; {nextAlarm !== undefined ? `Next alarm set for ${nextAlarm.full}` : 'No alarms set'}</h4>
+            <div class="options-panel">
+                <h5>Get time from API:</h5>
+                <ToggleSlider height="1rem" width="2rem" bind:toggleState={useApi}/>
+            </div>
+            <div class="options-panel">
+                <h5>Use precision mode <b>BETA (NOT RECOMMENDED)</b>:</h5>
+                <ToggleSlider height="1rem" width="2rem" bind:toggleState={usePrecisionMode}/>
+            </div>
         </div>
 
         <div class="alarm-set">
