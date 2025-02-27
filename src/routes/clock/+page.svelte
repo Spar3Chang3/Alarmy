@@ -29,6 +29,7 @@
     let hours = $state(0);
     let minutes = $state(0);
     let seconds = $state(0);
+    let milliseconds = $state(0);
 
     let amPm = $state('');
     let displayHours = $derived(get12Hr(hours));
@@ -46,34 +47,46 @@
 
     async function syncTime() {
 
-        try {
-            let res = await fetch(apiUrl);
-            let value = await res.json();
-            apiTime = new Date(value.datetime);
+        const begin = performance.now();
 
-            startTime = performance.now() + apiTime.getMilliseconds();
+        if (useApi) {
+            try {
+                let res = await fetch(apiUrl);
+                let value = await res.json();
+                apiTime = new Date(value.datetime);
 
+            } catch (error) {
+                console.error("Failed to sync time remotely: " + error);
+
+                useApi = false;
+                await syncTime();
+            }
+        } else {
+            apiTime = new Date();
+        }
+
+        if (usePrecisionMode) {
+            milliseconds = (apiTime.getHours() * 3600000) + (apiTime.getMinutes() * 60000) + (apiTime.getSeconds() * 1000) + (apiTime.getMilliseconds()) + (performance.now() - begin);
+
+            startTime = performance.now();
+        } else {
             hours = apiTime.getHours();
             minutes = apiTime.getMinutes();
             seconds = apiTime.getSeconds();
-            setAmPm();
-        } catch (error) {
-            console.error("Failed to sync time remotely: " + error);
         }
+
+        setAmPm();
     }
 
     function updateTimeFrame() {
-        if (performance.now() - startTime >= 1000) {
-            seconds++;
-            startTime = performance.now();
-        }
 
-        if (seconds === 60) {
-            seconds = 0;
-            minutes++;
-        }
+        const now = (performance.now() - startTime) + milliseconds;
 
-        if (minutes === 60) {
+        seconds = Math.floor(now / 1000) % 60;
+        minutes = Math.floor(now / 60000) % 60;
+        hours = Math.floor(now / 3600000);
+
+        if (hours >= 24) {
             syncTime();
         }
 
@@ -89,7 +102,42 @@
             }
         }
 
-        animationFrame = requestAnimationFrame(updateTimeFrame);
+        if (!usePrecisionMode) {
+            cancelAnimationFrame(animationFrame);
+            syncTime();
+            animationFrame = setInterval(updateTimeInterval, 1000);
+        } else {
+            animationFrame = requestAnimationFrame(updateTimeFrame);
+        }
+    }
+
+    function updateTimeInterval() {
+        seconds++;
+
+        if (seconds === 60) {
+            seconds = 0;
+            minutes++;
+        }
+
+        if (minutes === 60) {
+            syncTime();
+        }
+
+        if (alarmSet && nextAlarm) {
+            if (currentMinuteTime === nextAlarm.full && !alarmPlaying) {
+                playAlarm();
+                alarmPlaying = true;
+
+                calculateNextRings();
+                getNextNearestTime();
+            }
+        }
+
+        if (usePrecisionMode) {
+            clearInterval(animationFrame);
+            syncTime();
+            animationFrame = requestAnimationFrame(updateTimeFrame);
+        }
     }
 
     function setAmPm() {
@@ -233,11 +281,16 @@
                 allowCookies = true;
                 calculateNextRings();
                 getNextNearestTime();
+                alarmSet = true;
             }
         });
 
         syncTime().then(() => {
-            animationFrame = requestAnimationFrame(updateTimeFrame);
+            if (usePrecisionMode) {
+                animationFrame = requestAnimationFrame(updateTimeFrame);
+            } else {
+                animationFrame = setInterval(updateTimeInterval, 1000);
+            }
         });
 
         document.getElementById("time-input").addEventListener("keydown", (e) => {
@@ -247,7 +300,11 @@
         });
 
         return () => {
-            cancelAnimationFrame(animationFrame);
+            if (usePrecisionMode) {
+                cancelAnimationFrame(animationFrame);
+            } else {
+                clearInterval(animationFrame);
+            }
         }
     });
 
@@ -451,13 +508,13 @@
     <div class="alarm">
         <div class="time">
             <h1>{displayHours}:{displayMinutes}:{displaySeconds} {amPm}</h1>
-            <h4>{currentMinuteTime} &#183; {nextAlarm !== undefined ? `Next alarm set for ${nextAlarm.full}` : 'No alarms set'}</h4>
+            <h4>{currentMinuteTime} &#183; {nextAlarm !== undefined && alarmSet ? `Next alarm set for ${nextAlarm.full}` : 'No alarms set'}</h4>
             <div class="options-panel">
                 <h5>Get time from API:</h5>
                 <ToggleSlider height="1rem" width="2rem" bind:toggleState={useApi}/>
             </div>
             <div class="options-panel">
-                <h5>Use precision mode <b>BETA (NOT RECOMMENDED)</b>:</h5>
+                <h5>Use precision mode <b>BETA</b>:</h5>
                 <ToggleSlider height="1rem" width="2rem" bind:toggleState={usePrecisionMode}/>
             </div>
         </div>
