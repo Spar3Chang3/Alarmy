@@ -11,7 +11,9 @@
     let allowCookies = $state(false);
     let allowCookiePrompt = $state(false);
 
-
+    let hours = $state(0);
+    let minutes = $state(0);
+    let seconds = $state(0);
 
 </script>
 <style lang="css">

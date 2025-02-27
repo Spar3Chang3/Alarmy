@@ -1,42 +1,44 @@
 <script>
-    let time = $state('00:00:00');
-    let hours = $state(0);
-    let minutes = $state(0);
-    let seconds = $state(0);
+    import { FormatNumberString } from '$lib/index.js';
 
-    // Update the time state whenever hours, minutes, or seconds change
+    let { time = ('00:00:00'), hours = $bindable(0), minutes = $bindable(0), seconds = $bindable(0) } = $props();
+
     function updateTime(h, m, s) {
-        const formattedHours = h.toString().padStart(2, '0');
-        const formattedMinutes = m.toString().padStart(2, '0');
-        const formattedSeconds = s.toString().padStart(2, '0');
+        const formattedHours = FormatNumberString(h);
+        const formattedMinutes = FormatNumberString(m);
+        const formattedSeconds = FormatNumberString(s);
         time = `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
     }
 
-    // Handle hours change
     function handleHoursChange(e) {
         const value = parseInt(e.target.value, 10);
-        // Ensure hours are between 0-23
+
         hours = isNaN(value) ? 0 : Math.max(0, Math.min(23, value));
         updateTime(hours, minutes, seconds);
+
+        if (hours.toString().length === 2) {
+            document.getElementById('minutes').focus();
+        }
     }
 
-    // Handle minutes change
     function handleMinutesChange(e) {
         const value = parseInt(e.target.value, 10);
-        // Ensure minutes are between 0-59
+
         minutes = isNaN(value) ? 0 : Math.max(0, Math.min(59, value));
         updateTime(hours, minutes, seconds);
+
+        if (minutes.toString().length === 2) {
+            document.getElementById('seconds').focus();
+        }
     }
 
-    // Handle seconds change
     function handleSecondsChange(e) {
         const value = parseInt(e.target.value, 10);
-        // Ensure seconds are between 0-59
+
         seconds = isNaN(value) ? 0 : Math.max(0, Math.min(59, value));
         updateTime(hours, minutes, seconds);
     }
 
-    // Increment/decrement functions
     function incrementHours() {
         hours = (hours + 1) % 24;
         updateTime(hours, minutes, seconds);
@@ -69,102 +71,105 @@
 </script>
 
 <div class="time-picker-container">
-    <h2>Time Picker</h2>
-
     <div class="input-container">
         <div class="time-input">
-            <label for="hours">Hours</label>
-            <div class="input-with-arrows">
+            <div class="btn-group">
                 <button class="arrow up" onclick={incrementHours}>▲</button>
+                <button class="arrow down" onclick={decrementHours}>▼</button>
+            </div>
+            <div class="input-with-arrows">
+                <label for="hours">Hours</label>
                 <input
                         id="hours"
                         type="number"
                         min="0"
                         max="23"
-                        value={hours}
+                        value={FormatNumberString(hours)}
                         oninput={handleHoursChange}
                 />
-                <button class="arrow down" onclick={decrementHours}>▼</button>
             </div>
         </div>
 
         <div class="separator">:</div>
 
         <div class="time-input">
-            <label for="minutes">Minutes</label>
-            <div class="input-with-arrows">
+            <div class="btn-group">
                 <button class="arrow up" onclick={incrementMinutes}>▲</button>
+                <button class="arrow down" onclick={decrementMinutes}>▼</button>
+            </div>
+            <div class="input-with-arrows">
+                <label for="minutes">Minutes</label>
                 <input
                         id="minutes"
                         type="number"
                         min="0"
                         max="59"
-                        value={minutes}
+                        value={FormatNumberString(minutes)}
                         oninput={handleMinutesChange}
                 />
-                <button class="arrow down" onclick={decrementMinutes}>▼</button>
             </div>
         </div>
 
         <div class="separator">:</div>
 
         <div class="time-input">
-            <label for="seconds">Seconds</label>
-            <div class="input-with-arrows">
+            <div class="btn-group">
                 <button class="arrow up" onclick={incrementSeconds}>▲</button>
+                <button class="arrow down" onclick={decrementSeconds}>▼</button>
+            </div>
+            <div class="input-with-arrows">
+                <label for="seconds">Seconds</label>
                 <input
                         id="seconds"
                         type="number"
                         min="0"
                         max="59"
-                        value={seconds}
+                        value={FormatNumberString(seconds)}
                         oninput={handleSecondsChange}
                 />
-                <button class="arrow down" onclick={decrementSeconds}>▼</button>
             </div>
         </div>
     </div>
 
     <div class="time-display">
-        <p class="label">Selected Time:</p>
-        <p class="value">{time}</p>
+        <h2 class="value">{time}</h2>
     </div>
 </div>
 
 <style>
     .time-picker-container {
-        padding: 24px;
-        max-width: 400px;
+        padding: 1rem;
+        max-width: 25rem;
         margin: 0 auto;
-        background-color: white;
-        border-radius: 8px;
+        background-color: var(--color-background);
+        border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    h2 {
-        font-size: 1.25rem;
-        font-weight: bold;
-        margin-bottom: 16px;
+        z-index: 5;
     }
 
     .input-container {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 24px;
+        gap: 1rem;
+        margin-bottom: 1rem;
     }
 
     .time-input {
+        position: relative;
         display: flex;
-        flex-direction: column;
+
+        justify-content: center;
         align-items: center;
+        gap: 0.25rem;
     }
 
     .time-input label {
-        margin-bottom: 4px;
-        font-size: 0.875rem;
-        color: #666;
+        position: absolute;
+        top: -1.25rem;
+
+        font-size: 1rem;
+        color: var(--color-accent);
     }
 
     .input-with-arrows {
@@ -175,10 +180,10 @@
     }
 
     .time-input input {
-        width: 60px;
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
+        width: 4rem;
+        padding: 0.25rem;
+        border: 0.1rem solid var(--color-tertiary);
+        border-radius: 6px;
         text-align: center;
     }
 
@@ -191,23 +196,38 @@
 
     .time-input input[type=number] {
         -moz-appearance: textfield; /* Firefox */
+        background-color: #3a3a3a;
+        color: whitesmoke;
+    }
+
+    .btn-group {
+        position: relative;
+        display: grid;
+        grid-template-rows: 50% 50%;
+
+        height: fit-content;
+        width: fit-content;
+
+        place-items: center;
+        gap: 0.5rem;
     }
 
     .arrow {
-        position: absolute;
-        width: 20px;
-        height: 20px;
-        background: #f0f0f0;
-        border: 1px solid #ccc;
-        border-radius: 3px;
+        position: relative;
+        width: 1.5rem;
+        height: 1.5rem;
+        background: var(--color-foreground);
+        border: none;
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 10px;
+        font-size: 0.75rem;
         cursor: pointer;
         user-select: none;
         z-index: 1;
         transition: background-color 0.2s;
+        color: whitesmoke;
     }
 
     .arrow:hover {
@@ -218,33 +238,20 @@
         background-color: #d0d0d0;
     }
 
-    .arrow.up {
-        top: -10px;
-        right: 5px;
-    }
-
-    .arrow.down {
-        bottom: -10px;
-        right: 5px;
-    }
-
     .separator {
         font-size: 1.5rem;
         font-weight: bold;
+        color: whitesmoke;
     }
 
     .time-display {
-        background-color: #f5f5f5;
+        color: whitesmoke;
         padding: 16px;
         border-radius: 4px;
     }
 
-    .time-display .label {
-        color: #555;
-    }
-
     .time-display .value {
-        font-size: 1.5rem;
+        font-size: 2rem;
         font-family: monospace;
         font-weight: bold;
         text-align: center;
