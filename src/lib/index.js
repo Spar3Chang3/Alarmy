@@ -63,5 +63,9 @@ export function GetNextDay() {
 
 export const IconLinks = {
     alertTriangle: '/icons/alert-triangle.svg',
-    alertClock: '/icons/alarm.svg'
+    alertClock: '/icons/alarm.svg',
+    hourglass: '/icons/hourglass-low.svg',
+    play: '/icons/player-play.svg',
+    stop: '/icons/player-stop.svg',
+    trash: '/icons/trash.svg',
 }
