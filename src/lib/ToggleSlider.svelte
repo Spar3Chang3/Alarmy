@@ -1,11 +1,12 @@
 <script lang="js">
-	let { height = '2.5rem', width = '5rem', toggleState = $bindable(false) } = $props();
+	let { height = '2.5rem', width = '5rem', toggleState = $bindable(false), callback = (state) => {} } = $props();
 
 
 	function toggle(e) {
 		e.preventDefault();
 
 		toggleState = !toggleState;
+		callback(toggleState);
 	}
 </script>
 <style lang="css">

@@ -4,6 +4,7 @@
     import Alert from '$lib/Alert.svelte';
     import CookiePrompt from '$lib/CookiePrompt.svelte';
     import Fireflies from '$lib/Fireflies.svelte';
+    import TimePicker from '$lib/TimePicker.svelte';
 
     const cookieName = "TimerTimes";
 
@@ -19,6 +20,6 @@
 <section class="timer">
     <div class="shelf"></div>
     <div class="time">
-
+        <TimePicker/>
     </div>
 </section>

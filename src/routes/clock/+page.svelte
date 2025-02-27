@@ -22,6 +22,7 @@
 
     let alarmAudio = $state(null);
     let animationFrame = $state(null);
+    let syncInterval = $state(null);
 
     let startTime = $state(0);
     let apiTime = $state(new Date());
@@ -45,6 +46,20 @@
     let alarmPlaying = $state(false);
     let alarmSet = $state(false);
 
+    function setPrecisionMode(boolean) {
+        if (boolean) {
+            console.log("Using animation frames!");
+            clearInterval(animationFrame);
+            syncTime();
+            animationFrame = requestAnimationFrame(updateTimeFrame);
+        } else {
+            console.log("Using intervals!");
+            cancelAnimationFrame(animationFrame);
+            syncTime();
+            animationFrame = setInterval(updateTimeInterval, 1000);
+        }
+    }
+
     async function syncTime() {
 
         const begin = performance.now();
@@ -65,15 +80,10 @@
             apiTime = new Date();
         }
 
-        if (usePrecisionMode) {
-            milliseconds = (apiTime.getHours() * 3600000) + (apiTime.getMinutes() * 60000) + (apiTime.getSeconds() * 1000) + (apiTime.getMilliseconds()) + (performance.now() - begin);
+        milliseconds = (apiTime.getHours() * 3600000) + (apiTime.getMinutes() * 60000) + (apiTime.getSeconds() * 1000) + (apiTime.getMilliseconds()) + (performance.now() - begin);
+        //Get api time, then add all the times together to get total milliseconds, then add whatever lagging time we had behind that
 
-            startTime = performance.now();
-        } else {
-            hours = apiTime.getHours();
-            minutes = apiTime.getMinutes();
-            seconds = apiTime.getSeconds();
-        }
+        startTime = performance.now();
 
         setAmPm();
     }
@@ -102,26 +112,21 @@
             }
         }
 
-        if (!usePrecisionMode) {
-            cancelAnimationFrame(animationFrame);
-            syncTime();
-            animationFrame = setInterval(updateTimeInterval, 1000);
-        } else {
-            animationFrame = requestAnimationFrame(updateTimeFrame);
-        }
+        animationFrame = requestAnimationFrame(updateTimeFrame);
     }
 
     function updateTimeInterval() {
-        seconds++;
+        const now = (performance.now() - startTime) + milliseconds;
 
-        if (seconds === 60) {
-            seconds = 0;
-            minutes++;
-        }
+        seconds = Math.floor(now / 1000) % 60;
+        minutes = Math.floor(now / 60000) % 60;
+        hours = Math.floor(now / 3600000);
 
-        if (minutes === 60) {
+        if (hours >= 24) {
             syncTime();
         }
+
+        setAmPm();
 
         if (alarmSet && nextAlarm) {
             if (currentMinuteTime === nextAlarm.full && !alarmPlaying) {
@@ -131,12 +136,6 @@
                 calculateNextRings();
                 getNextNearestTime();
             }
-        }
-
-        if (usePrecisionMode) {
-            clearInterval(animationFrame);
-            syncTime();
-            animationFrame = requestAnimationFrame(updateTimeFrame);
         }
     }
 
@@ -285,13 +284,15 @@
             }
         });
 
-        syncTime().then(() => {
-            if (usePrecisionMode) {
-                animationFrame = requestAnimationFrame(updateTimeFrame);
-            } else {
-                animationFrame = setInterval(updateTimeInterval, 1000);
-            }
-        });
+        syncTime();
+
+        syncInterval = setInterval(syncTime, 600000); //sync time with pc/global every 10 min
+
+        if (usePrecisionMode) {
+            animationFrame = requestAnimationFrame(updateTimeFrame);
+        } else {
+            animationFrame = setInterval(updateTimeInterval, 1000);
+        }
 
         document.getElementById("time-input").addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
@@ -305,6 +306,7 @@
             } else {
                 clearInterval(animationFrame);
             }
+            clearInterval(syncInterval);
         }
     });
 
@@ -508,14 +510,14 @@
     <div class="alarm">
         <div class="time">
             <h1>{displayHours}:{displayMinutes}:{displaySeconds} {amPm}</h1>
-            <h4>{currentMinuteTime} &#183; {nextAlarm !== undefined && alarmSet ? `Next alarm set for ${nextAlarm.full}` : 'No alarms set'}</h4>
+            <h4>{currentMinuteTime} &#183; {nextAlarm && alarmSet ? `Next alarm set for ${nextAlarm.full}` : 'No alarms set'}</h4>
             <div class="options-panel">
                 <h5>Get time from API:</h5>
                 <ToggleSlider height="1rem" width="2rem" bind:toggleState={useApi}/>
             </div>
             <div class="options-panel">
                 <h5>Use precision mode <b>BETA</b>:</h5>
-                <ToggleSlider height="1rem" width="2rem" bind:toggleState={usePrecisionMode}/>
+                <ToggleSlider height="1rem" width="2rem" bind:toggleState={usePrecisionMode} callback={setPrecisionMode}/>
             </div>
         </div>
 
@@ -528,7 +530,7 @@
             <div class="alarm-comp-container">
                 {#each displaySavedAlarms as alarm}
                     <div class="alarm-comp">
-                        <span>{get12Hr(alarm.hours)}:{alarm.minutes} {getAmPm(alarm.hours)}</span>
+                        <span>{get12Hr(alarm.hours)}:{FormatNumberString(alarm.minutes)} {getAmPm(alarm.hours)}</span>
                         <p>Next alarm ring: {alarm.timestamp}</p>
                         <button class="delete" onclick={() => deleteAlarm(alarm)}>&#10005;</button>
                     </div>
